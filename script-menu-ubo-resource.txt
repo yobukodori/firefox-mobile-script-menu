@@ -1,0 +1,221 @@
+# name:  Script menu for firefox mobile 79+(fenix) using ublock origin
+# author: yobukodori 
+# homepage: https://github.com/yobukodori/firefox-mobile-script-menu
+
+script-menu.js application/javascript
+(function() {
+	let appName = "fmsm", appVer = "v.0.9.0";
+	if (! window["fmsm-data"]){
+		window["fmsm-data"] = { nInstance:0};
+	}
+	let appId = window["fmsm-data"].nInstance++, appLogPrefix = "["+appName+":"+appId+"]";
+	function log(){
+		console.log.apply(console,[appLogPrefix].concat(Array.from(arguments)));
+	}
+	log(appName,appVer);
+	log("running on", location.href);
+	let name = '{{1}}', src = '{{2}}', charset = '{{3}}', options = '{{4}}';
+	if (charset === '{{3}}'){ charset = ""; }
+	try { options = JSON.parse(options) } catch (e){ options = {}; }
+	let args = {name: name, src: src, charset: charset, options: options};
+	log("args:", args, "\noptions:",options);
+	if (! /^(https?|data|javascript|fmsm-script):/.test(src)){
+		log("non-supported src url:", src);
+		return;
+	}
+	function aesDecrypt(ciphertext, password, iv, callback){
+		let te = new TextEncoder(),
+			crypted = Uint8Array.from(Array.prototype.map.call(atob(ciphertext), c=>{return c.charCodeAt(0);}));
+		crypto.subtle.importKey('raw', te.encode(password), {name:'AES-CBC'}, false, ['decrypt'])
+		.then(cryptoKey=>{
+			return crypto.subtle.decrypt({name: 'AES-CBC', iv: te.encode(iv)},cryptoKey,crypted);
+		})
+		.then(decrypted=>{
+			let plaintext = new TextDecoder().decode(decrypted);
+			callback(plaintext);
+		})
+	}
+	function isString(v){
+		return typeof v === 'string' || (typeof v !== "undefined" && v instanceof String);
+	}
+	function inject(src, charset, inline){
+		let e = document.createElement("script");
+		if (charset){ e.charset = charset };
+		inline ?  (e.textContent = src) : (e.src = src);
+		document.body.appendChild(e);
+	}
+	function runScript(args){
+		let src = args.src, charset = args.charset, scheme = src.substring(0, src.indexOf(":"));
+		log("run",src);
+		if (scheme === "fmsm-script"){
+			src = src.substring(scheme.length+1).trim();
+			console.log('window["fmsm-script"]['+'"'+src+'"'+']()');
+			if (window["fmsm-script"] && typeof window["fmsm-script"][src] === "function"){
+				setTimeout(window["fmsm-script"][src], 0);
+			}
+		}
+		else {
+			let e = document.createElement("script");
+			if (scheme === "javascript"){
+				inject(src.substring(scheme.length+1), "utf-8", true);
+			}
+			else {
+				if (args.options && args.options.aes){
+					let aes = args.options.aes;
+					if (isString(aes.pass) && isString(aes.iv)){
+						log("processing AES");
+						fetch(src)
+						.then(res=>{
+							if (! res.ok){throw Error(res.status+' '+res.statusText);}
+							return res.text();
+						})
+						.then(text=>{
+							aesDecrypt(text, aes.pass, aes.iv, plaintext=>{
+								log("decrypted:",plaintext.substring(0,80));
+								inject(plaintext, charset, true);
+							});
+						})
+						.catch(e=>{
+							log(e);
+						});
+					}
+					else {
+						log("wrong aes.pass and/or aes.iv. both must be string");
+					}
+				}
+				else {
+					inject(src, charset, false);
+				}
+			}
+		}
+	}
+	function appendStylesheet(rules, id)	{
+		let e = document.createElement("style");
+		if (id){
+			e.id = id;
+		}
+		e.type = "text/css";
+		e.innerHTML = rules;
+		document.getElementsByTagName("head")[0].appendChild(e);
+	}
+	function createMenu(){
+		appendStylesheet("#fmsm-menu-button{border:thin solid;width:30px;height:30px;background-color:gold; color:black;font-size:24px;font-family:serif;font-weight:bold;text-align:center;padding:initial; position:fixed;top:100px;right:0px;z-index:2147483647;} #fmsm-menu{display:inline-flex;flex-direction:column;background-color:gainsboro;position:fixed;top:100px;right:0px;z-index:2147483647;} #fmsm-menu > button {font-family:sans-serif;font-size:20px !important;border:thin solid !important;padding:0.3em 0.2em !important} #fmsm-about{font-size:15px !important} .fmsm-hide{display:none !important;}");
+		function createMenuButton(){
+			let btnId = "fmsm-menu-button";
+			if (document.getElementById(btnId)){ return; }
+			log("creating menu button");
+			let btn = document.createElement("button");
+			btn.id = btnId;
+			btn.textContent = "B";
+			document.body.appendChild(btn);
+			btn.addEventListener("click",ev=>{
+				log("menu button clicked");
+				ev.stopPropagation();
+				log("removing menu button");
+				btn.remove();
+				log("creating menu");
+				let html = "";
+				document["fmsm-data"].bm.forEach((bm,idx)=>{
+					let description;
+					if (/^javascript:/.test(bm.src)){
+						description = bm.src.substring(0, 40);
+					}
+					else {
+						description = bm.src.substring(bm.src.lastIndexOf("/")+1).substring(0,40);
+					}
+					html += '<button class="fmsm-menu-item" data-index="'+idx+'">'
+								+ bm.name /* + ' ' + description */
+								+ '</button>';
+				});
+				html += '<button id="fmsm-menu-close">Close</button>'
+							+ '<button id="fmsm-menu-exit">Exit</button>'
+							+ '<div id="fmsm-about">'+appName+' '+appVer+'</div>'
+							;
+				let menu = document.createElement("div");
+				menu.id = "fmsm-menu";
+				menu.innerHTML = html;
+				document.body.appendChild(menu);
+				Array.from(menu.getElementsByClassName("fmsm-menu-item")).forEach(e=>{
+					e.addEventListener("click", ev=>{
+						log("menu-item clicked and removing menu");
+						menu.remove();
+						runScript(document["fmsm-data"].bm[ev.target.getAttribute("data-index")]);
+						createMenuButton();
+					});
+				});
+				document.getElementById("fmsm-menu-close").addEventListener("click", ev=>{
+					log("menu-close clicked");
+				});
+				document.getElementById("fmsm-menu-exit").addEventListener("click", ev=>{
+					log("menu-exit clicked and removing menu");
+					menu.remove();
+				});
+				document.addEventListener("click",ev=>{
+					if (menu.parentElement){
+						log("document clicked and removing menu");
+						menu.remove();
+						createMenuButton();
+					}
+				});
+			});
+		}
+		createMenuButton();
+	}
+	function onDomReady(ev){
+		log("onRomReady");
+		if (! document["fmsm-data"]){
+			log('initializing document["fmsm-data"]');
+			document["fmsm-data"] = { bm: [] };
+		}
+		if (document["fmsm-data"].bm.push(args) === 1){
+			createMenu();
+		}
+	}
+	log("readystate",document.readyState);
+	if (document.readyState === "loading"){
+		document.addEventListener("DOMContentLoaded", onDomReady);
+		log("added event listener: DOMContentLoaded");
+	} else {
+		onDomReady();
+	}
+})();
+
+
+google-link-fix.js application/javascript
+(function() {
+	if (location.pathname !== "/search"){
+		return;
+	}
+	function onDomReady(ev){
+		["contextmenu","touchstart","mousedown"].forEach(e=>{
+			if (document.querySelector('a[on'+e+']')){
+				document.addEventListener(e, function(event){event.stopImmediatePropagation();}, true);
+			}
+		});
+		Array.from(document.links).forEach(a=>{
+			try {
+				let url = new URL(a.href);
+				if (url.hostname === location.hostname && url.pathname === "/url" && url.search){
+					let params = {};
+					url.search.substring(1).split("&").forEach(param=>{
+						let i = param.indexOf("="), 
+							name = (i !== -1 ? param.substring(0, i) : ""), 
+							val = (i !== -1 ? decodeURIComponent(param.substring(i+1)) : null);
+						params[name] = val;
+					});
+					let href = params["url"] || params["q"] || "";
+					if (/^https?:/.test(href)){
+						a.href = href;
+					}
+				}
+			}
+			catch (e){
+			}
+		});
+	}
+	if (document.readyState === "loading"){
+		document.addEventListener("DOMContentLoaded", onDomReady);
+	} else {
+		onDomReady();
+	}
+})();
