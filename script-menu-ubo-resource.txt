@@ -4,7 +4,7 @@
 
 script-menu.js application/javascript
 (function() {
-	let appName = "fmsm", appVer = "v.0.9.1";
+	let appName = "fmsm", appVer = "v.0.9.2";
 	if (! window["fmsm-data"]){
 		window["fmsm-data"] = { nInstance:0};
 	}
@@ -110,7 +110,7 @@ script-menu.js application/javascript
 		document.getElementsByTagName("head")[0].appendChild(e);
 	}
 	function createMenu(){
-		appendStylesheet("#fmsm-menu-button{border:thin solid;width:30px;height:30px;background-color:gold; color:black;font-size:24px;font-family:serif;font-weight:bold;text-align:center;padding:initial; position:fixed;top:100px;right:0px;z-index:2147483647;} #fmsm-menu{display:inline-flex;flex-direction:column;background-color:gainsboro;position:absolute;z-index:2147483647;} #fmsm-menu > button {font-family:sans-serif;font-size:20px !important;border:thin solid !important;padding:0.3em 0.2em !important} .fmsm-menu-item-name{font-family:sans-serif;font-size:20px !important;} .fmsm-menu-item-detail{font-family:sans-serif;font-size:16px !important;color:blue !important;} #fmsm-about{font-size:15px !important} .fmsm-hide{display:none !important;}");
+		appendStylesheet("#fmsm-menu-button{border:thin solid;width:30px;height:30px;background-color:gold; color:black;font-size:24px;font-family:serif;font-weight:bold;text-align:center;padding:initial; position:fixed;top:100px;right:0px;z-index:2147483647;} #fmsm-menu{display:inline-flex;flex-direction:column;background-color:gainsboro;position:absolute;right:0;z-index:2147483647;} #fmsm-menu > button {font-family:sans-serif;font-size:20px !important;border:thin solid !important;padding:0.3em 0.2em !important} .fmsm-menu-item-name{font-family:sans-serif;font-size:20px !important;} .fmsm-menu-item-detail{font-family:sans-serif;font-size:16px !important;color:blue !important;} #fmsm-about{font-size:15px !important} .fmsm-hide{display:none !important;}");
 		function createMenuButton(){
 			let btnId = "fmsm-menu-button";
 			if (document.getElementById(btnId)){ return; }
