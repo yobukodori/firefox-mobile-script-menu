@@ -1,12 +1,13 @@
 # name:  Script menu for firefox mobile 79+(fenix) using ublock origin
 # author: yobukodori 
+# description: Run arbitrary scripts such as bookmarklets in firefox mobile 79+(fenix).
 # homepage: https://github.com/yobukodori/firefox-mobile-script-menu
 
 script-menu.js application/javascript
 (function() {
-	let appName = "fmsm", appVer = "v.0.9.2";
+	let appName = "fmsm", appVer = "v.0.9.3";
 	if (! window["fmsm-data"]){
-		window["fmsm-data"] = { nInstance:0};
+		window["fmsm-data"] = { nInstance:0, pw:[] };
 	}
 	let appId = window["fmsm-data"].nInstance++, appLogPrefix = "["+appName+":"+appId+"]";
 	function log(){
@@ -14,12 +15,17 @@ script-menu.js application/javascript
 	}
 	log(appName,appVer);
 	log("running on", location.href);
-	let name = '{{1}}', src = '{{2}}', options = '{{3}}';
+	let pw = '{{1}}', name = '{{2}}', src = '{{3}}', options = '{{4}}';
 	try { options = JSON.parse(options) } catch (e){ options = {}; }
-	let args = {name: name, src: src, options: options};
+	let args = {pw: pw, name: name, src: src, options: options};
 	log("args:", args, "\noptions:",options);
-	if (! /^(https?|javascript|fmsm):/.test(src)){
+	if (! /^(https?|javascript|fmsm|password):/.test(src)){
 		log("non-supported src url :", src);
+		return;
+	}
+	let scheme = src.substring(0, src.indexOf(":"));
+	if (scheme === "password"){
+		window["fmsm-data"].pw.push(src.substring(scheme.length+1).trim());
 		return;
 	}
 	function aesDecrypt(ciphertext, password, iv, callback){
@@ -44,12 +50,74 @@ script-menu.js application/javascript
 		document.body.appendChild(e);
 	}
 	let fmsm = {
-		"scroll-to-page-top": function(){
+		pageSource: "",
+		"scroll-to-top": function(){
 			scrollTo(0, 0);
 		},
-		"scroll-to-page-bottom": function(){
+		"scroll-to-bottom": function(){
 			scrollTo(0, document.body.scrollHeight)
 		},
+		"view-source": function(){
+			function convertSourceToURL(src){
+				return URL.createObjectURL(new Blob([src],{type:'text/plain; charset="utf-8"'}));
+			}
+			if (fmsm.pageSource){
+				let a = document.createElement("a");
+				a.href = convertSourceToURL(fmsm.pageSource);
+				a.target = "_blank";
+				a.click()
+				return;
+			}
+			const className = "fmsm-view-source-dialog";
+			if (document.querySelector("."+className)){
+				console.log("source-view already running");
+				return;
+			}
+			let a = document.createElement("a");
+			a.className = className;
+			a.addEventListener("click",ev=>{
+				a.remove();
+			});
+			a.addEventListener("mousedown",ev=>{
+				if (ev.button === 1){
+					setTimeout(function(){a.remove();}, 500);
+				}
+			});
+			a.href = "javascript:void(0)";
+			a.textContent = "Requesting html";
+			document.body.appendChild(a);
+			fetch(location.href)
+			.then(res=>{
+				return res.arrayBuffer();
+			})
+			.then(buf=>{
+				fmsm.pageSource = new TextDecoder(document.characterSet).decode(buf);
+				a.target = "_blank";
+				a.href = convertSourceToURL(fmsm.pageSource);
+				a.textContent = "Got html! Tap here to view source";
+			})
+			.catch(e=>{
+				a.textContent = e.message+"\nTap this message to close";
+			});
+		},
+		"view-outerhtml": function(){
+			let html, selection = window.getSelection(), range;
+			if (selection.rangeCount > 0 && ! (range = selection.getRangeAt(0)).collapsed){
+				const ELEMENT_NODE = 1, TEXT_NODE = 3;
+				let container = range.commonAncestorContainer;
+				if (container.nodeType === TEXT_NODE){
+					container = container.parentNode;
+				}
+				html = container.outerHTML;
+			}
+			else {
+				html = document.documentElement.outerHTML;
+			}
+			let a = document.createElement("a");
+			a.href = URL.createObjectURL(new Blob([html],{type:'text/plain; charset="utf-8"'}));
+			a.target = "_blank";
+			a.click()
+		}
 	};
 	function runScript(args){
 		let src = args.src, charset = args.options.charset, aes = args.options.aes,
@@ -57,11 +125,11 @@ script-menu.js application/javascript
 		log("run",src);
 		if (scheme === "fmsm"){
 			src = src.substring(scheme.length+1).trim();
-			if (fmsm[src]){
+			if (typeof fmsm[src] === "function"){
 				setTimeout(fmsm[src], 0);
 			}
 			else {
-				log("no such a built-in script:", src);
+				log("No such a built-in script:", src);
 			}
 		}
 		else {
@@ -110,7 +178,7 @@ script-menu.js application/javascript
 		document.getElementsByTagName("head")[0].appendChild(e);
 	}
 	function createMenu(){
-		appendStylesheet("#fmsm-menu-button{border:thin solid;width:30px;height:30px;background-color:gold; color:black;font-size:24px;font-family:serif;font-weight:bold;text-align:center;padding:initial; position:fixed;top:100px;right:0px;z-index:2147483647;} #fmsm-menu{display:inline-flex;flex-direction:column;background-color:gainsboro;position:absolute;right:0;z-index:2147483647;} #fmsm-menu > button {font-family:sans-serif;font-size:20px !important;border:thin solid !important;padding:0.3em 0.2em !important} .fmsm-menu-item-name{font-family:sans-serif;font-size:20px !important;} .fmsm-menu-item-detail{font-family:sans-serif;font-size:16px !important;color:blue !important;} #fmsm-about{font-size:15px !important} .fmsm-hide{display:none !important;}");
+		appendStylesheet("#fmsm-menu-button{border:thin solid;width:30px;height:30px;background-color:gold; color:black;font-size:24px;font-family:serif;font-weight:bold;text-align:center;padding:initial; position:fixed;top:100px;right:0px;z-index:2147483647;} #fmsm-menu{display:inline-flex;flex-direction:column;background-color:gainsboro;position:absolute;right:0;z-index:2147483647;} #fmsm-menu > button {font-family:sans-serif;font-size:20px !important;border:thin solid !important;padding:0.3em 0.2em !important} .fmsm-error {color:red;background-color:yellow} .fmsm-menu-item-name{font-family:sans-serif;font-size:20px !important;} .fmsm-menu-item-detail{font-family:sans-serif;font-size:16px !important;color:blue !important;} #fmsm-about{font-size:15px !important} .fmsm-hide{display:none !important;} .fmsm-view-source-dialog {position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 0.5em 1em; background-color: lightgray; border: solid; font-size:24px;font-family:serif;}");
 		function createMenuButton(){
 			let btnId = "fmsm-menu-button";
 			if (document.getElementById(btnId)){ return; }
@@ -127,27 +195,47 @@ script-menu.js application/javascript
 				log("creating menu");
 				const detail_max = 60;
 				let html = "";
-				document["fmsm-data"].menuItem.forEach((item,idx)=>{
-					let src = item.src, scheme = src.substring(0, src.indexOf(":")), detail;
-					if (scheme === "javascript"){
-						detail = src.substring(scheme.length+1).replace(/\s+/g,' ').trim();
-						detail = detail.substring(0,detail_max) + (detail.length > detail_max ? " ..." : "");
-					}
-					else if (scheme === "https" || scheme === "http"){
-						// convert the url to fully qualified url.
-						let a = document.createElement("a");
-						a.href = src;
-						detail = a.href.substring(scheme.length+3);
+				if (window["fmsm-data"].pw.length === 1){
+					document["fmsm-data"].menuItem.forEach((item,idx)=>{
+						let pwNotMatch, detail;
+						if (item.pw === window["fmsm-data"].pw[0]){
+							let src = item.src, scheme = src.substring(0, src.indexOf(":"));
+							if (scheme === "javascript"){
+								detail = src.substring(scheme.length+1).replace(/\s+/g,' ').trim();
+								detail = detail.substring(0,detail_max) + (detail.length > detail_max ? " ..." : "");
+							}
+							else if (scheme === "https" || scheme === "http"){
+								// convert the url to fully qualified url.
+								let a = document.createElement("a");
+								a.href = src;
+								detail = a.href.substring(scheme.length+3);
+							}
+							else {
+								detail = src.replace(/\s+/g,' ').trim();
+								detail = detail.substring(0,detail_max) + (detail.length > detail_max ? " ..." : "");
+							}
+						}
+						else {
+							pwNotMatch = true;
+							detail = "Error: Password does not match";
+						}
+						html += '<button data-index="'+idx+'"'
+										+ ' class="fmsm-menu-item'+(pwNotMatch ? ' fmsm-error" disabled':'"')+'>'
+									+ '<span class="fmsm-menu-item-name">' + item.name + ' </span>'
+									+ '<div class="fmsm-menu-item-detail">' + detail + '</div>'
+									+ '</button>';
+					});
+				}
+				else {
+					let msg;
+					if (window["fmsm-data"].pw.length === 0){
+						msg = "fmsm password is not defined";
 					}
 					else {
-						detail = src.replace(/\s+/g,' ').trim();
-						detail = detail.substring(0,detail_max) + (detail.length > detail_max ? " ..." : "");
+						msg = "fmsm password is defined more than once";
 					}
-					html += '<button class="fmsm-menu-item" data-index="'+idx+'">'
-								+ '<span class="fmsm-menu-item-name">' + item.name + ' </span>'
-								+ '<div class="fmsm-menu-item-detail">' + detail + '</div>'
-								+ '</button>';
-				});
+					html = '<button class="fmsm-error">Error: ' + msg + '</button>';
+				}
 				html += '<button id="fmsm-menu-close">Close</button>'
 							+ '<button id="fmsm-menu-exit">Exit</button>'
 							+ '<div id="fmsm-about">'+appName+' '+appVer+'</div>'
@@ -209,42 +297,3 @@ script-menu.js application/javascript
 	}
 })();
 
-
-google-link-fix.js application/javascript
-(function() {
-	if (location.pathname !== "/search"){
-		return;
-	}
-	function onDomReady(ev){
-		["contextmenu","touchstart","mousedown"].forEach(e=>{
-			if (document.querySelector('a[on'+e+']')){
-				document.addEventListener(e, function(event){event.stopImmediatePropagation();}, true);
-			}
-		});
-		Array.from(document.links).forEach(a=>{
-			try {
-				let url = new URL(a.href);
-				if (url.hostname === location.hostname && url.pathname === "/url" && url.search){
-					let params = {};
-					url.search.substring(1).split("&").forEach(param=>{
-						let i = param.indexOf("="), 
-							name = (i !== -1 ? param.substring(0, i) : ""), 
-							val = (i !== -1 ? decodeURIComponent(param.substring(i+1)) : null);
-						params[name] = val;
-					});
-					let href = params["url"] || params["q"] || "";
-					if (/^https?:/.test(href)){
-						a.href = href;
-					}
-				}
-			}
-			catch (e){
-			}
-		});
-	}
-	if (document.readyState === "loading"){
-		document.addEventListener("DOMContentLoaded", onDomReady);
-	} else {
-		onDomReady();
-	}
-})();
