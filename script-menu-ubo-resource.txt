@@ -5,7 +5,7 @@
 
 script-menu.js application/javascript
 (function() {
-	let appName = "fmsm", appVer = "v.0.9.5";
+	let appName = "fmsm", appVer = "v.0.9.7";
 	if (! window["fmsm-data"]){
 		window["fmsm-data"] = { nInstance:0, pw:[] };
 	}
@@ -196,6 +196,19 @@ script-menu.js application/javascript
 				const detail_max = 60;
 				let html = "";
 				if (window["fmsm-data"].pw.length === 1){
+					if (! document["fmsm-data"].sorted){
+						document["fmsm-data"].sorted = true;
+						log("sorting menu items");
+						document["fmsm-data"].menuItem.sort((a,b)=>{
+							let a_idx =a.options.index * 1, b_idx = b.options.index * 1;
+							if (! isNaN(a_idx)){
+								return isNaN(b_idx) ? -1 : a_idx - b_idx;
+							}
+							else { // a is not numeric.
+								return ! isNaN(b_idx) ? 1 : (a.name < b.name ?  -1 : (a.name > b.name ? 1 : 0));
+							}
+						});
+					}
 					document["fmsm-data"].menuItem.forEach((item,idx)=>{
 						let pwNotMatch, detail;
 						if (item.pw === window["fmsm-data"].pw[0]){
