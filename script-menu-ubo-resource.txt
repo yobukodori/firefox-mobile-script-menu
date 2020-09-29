@@ -5,7 +5,7 @@
 
 script-menu.js application/javascript
 (function() {
-	let appName = "fmsm", appVer = "v.0.9.8";
+	let appName = "fmsm", appVer = "v.0.9.9";
 	if (! window["fmsm-data"]){
 		window["fmsm-data"] = { nInstance:0, pw:[] };
 	}
@@ -40,7 +40,7 @@ script-menu.js application/javascript
 		}
 	};
 	function t(msg){
-		let res = languageResource[navigator.language];
+		let res = languageResource[navigator.language.split('-')[0]];
 		return (res &&  res[msg]) ?  res[msg] : msg;
 	}
 	function aesDecrypt(ciphertext, password, iv, callback){
