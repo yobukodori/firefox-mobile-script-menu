@@ -5,7 +5,7 @@
 
 script-menu.js application/javascript
 (function() {
-	let appName = "fmsm", appVer = "v.0.9.7";
+	let appName = "fmsm", appVer = "v.0.9.8";
 	if (! window["fmsm-data"]){
 		window["fmsm-data"] = { nInstance:0, pw:[] };
 	}
@@ -20,13 +20,28 @@ script-menu.js application/javascript
 	let args = {pw: pw, name: name, src: src, options: options};
 	log("args:", args, "\noptions:",options);
 	if (! /^(https?|javascript|fmsm|password):/.test(src)){
-		log("non-supported src url :", src);
+		log("unknown script type:", src.substring(0,80));
 		return;
 	}
 	let scheme = src.substring(0, src.indexOf(":"));
 	if (scheme === "password"){
 		window["fmsm-data"].pw.push(src.substring(scheme.length+1).trim());
 		return;
+	}
+	let languageResource = {
+		"ja": {
+			"Error": "エラー",
+			"Password does not match": "パスワードが一致しません",
+			"fmsm password is defined more than once": "パスワードが２回以上設定されています",
+			"fmsm password is not defined": "パスワードが設定されていません",
+			"Got HTML! Tap here to view source": "HTMLを取得しました。ここをタップして表示します",
+			"Close": "閉じる",
+			"Exit": "終了",
+		}
+	};
+	function t(msg){
+		let res = languageResource[navigator.language];
+		return (res &&  res[msg]) ?  res[msg] : msg;
 	}
 	function aesDecrypt(ciphertext, password, iv, callback){
 		let te = new TextEncoder(),
@@ -94,7 +109,7 @@ script-menu.js application/javascript
 				fmsm.pageSource = new TextDecoder(document.characterSet).decode(buf);
 				a.target = "_blank";
 				a.href = convertSourceToURL(fmsm.pageSource);
-				a.textContent = "Got html! Tap here to view source";
+				a.textContent = t("Got HTML! Tap here to view source");
 			})
 			.catch(e=>{
 				a.textContent = e.message+"\nTap this message to close";
@@ -230,7 +245,7 @@ script-menu.js application/javascript
 						}
 						else {
 							pwNotMatch = true;
-							detail = "Error: Password does not match";
+							detail = t("Error") + ": " + t("Password does not match");
 						}
 						html += '<button data-index="'+idx+'"'
 										+ ' class="fmsm-menu-item'+(pwNotMatch ? ' fmsm-error" disabled':'"')+'>'
@@ -242,15 +257,15 @@ script-menu.js application/javascript
 				else {
 					let msg;
 					if (window["fmsm-data"].pw.length === 0){
-						msg = "fmsm password is not defined";
+						msg = t("fmsm password is not defined");
 					}
 					else {
-						msg = "fmsm password is defined more than once";
+						msg = t("fmsm password is defined more than once");
 					}
-					html = '<button class="fmsm-error">Error: ' + msg + '</button>';
+					html = '<button class="fmsm-error">' + t('Error') + ': ' + msg + '</button>';
 				}
-				html += '<button id="fmsm-menu-close">Close</button>'
-							+ '<button id="fmsm-menu-exit">Exit</button>'
+				html += '<button id="fmsm-menu-close">' + t('Close') + '</button>'
+							+ '<button id="fmsm-menu-exit">' + t('Exit') + '</button>'
 							+ '<div id="fmsm-about">'+appName+' '+appVer+'</div>'
 							;
 				let menu = document.createElement("div");
