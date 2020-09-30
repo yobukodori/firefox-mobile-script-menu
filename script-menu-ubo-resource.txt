@@ -5,7 +5,7 @@
 
 script-menu.js application/javascript
 (function() {
-	let appName = "fmsm", appVer = "v.0.9.9";
+	let appName = "fmsm", appVer = "v.0.9.a";
 	if (! window["fmsm-data"]){
 		window["fmsm-data"] = { nInstance:0, pw:[] };
 	}
@@ -54,6 +54,9 @@ script-menu.js application/javascript
 			let plaintext = new TextDecoder().decode(decrypted);
 			callback(plaintext);
 		})
+	}
+	function truncate(str, maxLength){
+		return str.length > maxLength ? str.substring(0, maxLength) + " ..." : str;
 	}
 	function isString(v){
 		return typeof v === 'string' || (typeof v !== "undefined" && v instanceof String);
@@ -193,7 +196,7 @@ script-menu.js application/javascript
 		document.getElementsByTagName("head")[0].appendChild(e);
 	}
 	function createMenu(){
-		appendStylesheet("#fmsm-menu-button{border:thin solid;width:30px;height:30px;background-color:gold; color:black;font-size:24px;font-family:serif;font-weight:bold;text-align:center;padding:initial; position:fixed;top:100px;right:0px;z-index:2147483647;} #fmsm-menu{display:inline-flex;flex-direction:column;background-color:gainsboro;position:absolute;right:0;z-index:2147483647;} #fmsm-menu > button {font-family:sans-serif;font-size:20px !important;border:thin solid !important;padding:0.3em 0.2em !important;text-align:center !important;} .fmsm-error {color:red;background-color:yellow} .fmsm-menu-item {line-height:1em;} .fmsm-menu-item-name{font-family:sans-serif;font-size:18px !important;} .fmsm-menu-item-detail{font-family:sans-serif;font-size:16px !important;color:blue !important;} #fmsm-about{font-size:15px !important} .fmsm-hide{display:none !important;} .fmsm-view-source-dialog {position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 0.5em 1em; background-color: lightgray; border: solid; font-size:24px;font-family:serif;}");
+		appendStylesheet("#fmsm-menu-button{border:thin solid;width:30px;height:30px;background-color:gold; color:black;font-size:24px;font-family:serif;font-weight:bold;text-align:center;padding:initial; position:fixed;top:100px;right:0px;z-index:2147483647;} #fmsm-menu{display:inline-flex;flex-direction:column;background-color:gainsboro;position:absolute;right:0;z-index:2147483647;} #fmsm-menu > button {font-family:sans-serif;font-size:18px !important;border:thin solid !important;padding:0.3em 0.2em !important;text-align:center !important;} .fmsm-error {color:red;background-color:yellow} .fmsm-warning {background-color:yellow} .fmsm-menu-item-has-summary {line-height:1em;} .fmsm-menu-item-name{font-family:sans-serif;font-size:18px !important;} .fmsm-menu-item-summary{font-family:sans-serif;font-size:16px !important;color:blue !important;} #fmsm-about{font-size:15px !important} .fmsm-hide{display:none !important;} .fmsm-view-source-dialog {position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 0.5em 1em; background-color: lightgray; border: solid; font-size:24px;font-family:serif;}");
 		function createMenuButton(){
 			let btnId = "fmsm-menu-button";
 			if (document.getElementById(btnId)){ return; }
@@ -208,7 +211,7 @@ script-menu.js application/javascript
 				log("removing menu button");
 				btn.remove();
 				log("creating menu");
-				const detail_max = 60;
+				const summary_max = 60;
 				let html = "";
 				if (window["fmsm-data"].pw.length === 1){
 					if (! document["fmsm-data"].sorted){
@@ -225,32 +228,52 @@ script-menu.js application/javascript
 						});
 					}
 					document["fmsm-data"].menuItem.forEach((item,idx)=>{
-						let pwNotMatch, detail;
+						let name = item.name, src = item.src, options = item.options,
+							summary = "", scheme = src.substring(0, src.indexOf(":")),
+							fError, fWarning;
 						if (item.pw === window["fmsm-data"].pw[0]){
-							let src = item.src, scheme = src.substring(0, src.indexOf(":"));
-							if (scheme === "javascript"){
-								detail = src.substring(scheme.length+1).replace(/\s+/g,' ').trim();
-								detail = detail.substring(0,detail_max) + (detail.length > detail_max ? " ..." : "");
-							}
-							else if (scheme === "https" || scheme === "http"){
-								// convert the url to fully qualified url.
-								let a = document.createElement("a");
-								a.href = src;
-								detail = a.href.substring(scheme.length+3);
+							if (scheme === "fmsm"){
+								if (! name){
+									summary = src;
+								}
 							}
 							else {
-								detail = src.replace(/\s+/g,' ').trim();
-								detail = detail.substring(0,detail_max) + (detail.length > detail_max ? " ..." : "");
+								if (scheme === "javascript"){
+									summary = truncate(src.substring(scheme.length+1).replace(/\s+/g,' ').trim(), summary_max);
+								}
+								else if (scheme === "https" || scheme === "http"){
+									// convert the url to fully qualified url.
+									let a = document.createElement("a");
+									a.href = src;
+									summary = a.href.substring(scheme.length+3);
+								}
+								else {
+									summary = truncate(src.replace(/\s+/g,' ').trim(), summary_max);
+								}
+								if (options.summary === "no"){
+									fWarning = true;
+									if (name){
+										summary = "";
+									}
+								}
 							}
 						}
 						else {
-							pwNotMatch = true;
-							detail = t("Error") + ": " + t("Password does not match");
+							fError = true;
+							summary = summary = truncate(src.replace(/\s+/g,' ').trim(), summary_max)
+										+ '<br/>' + t("Error") + ": " + t("Password does not match");
 						}
-						html += '<button data-index="'+idx+'"'
-										+ ' class="fmsm-menu-item'+(pwNotMatch ? ' fmsm-error" disabled':'"')+'>'
-									+ '<span class="fmsm-menu-item-name">' + item.name + ' </span>'
-									+ '<div class="fmsm-menu-item-detail">' + detail + '</div>'
+						let itemClass = 'fmsm-menu-item' 
+											+ (fError ? ' fmsm-error' : '')
+											+ (fWarning ? ' fmsm-warning' : '')
+											+ (summary ? ' fmsm-menu-item-has-summary' : '');
+						if (summary){
+							summary = '<div class="fmsm-menu-item-summary">' + summary + '</div>';
+						}
+						html += '<button data-index="' + idx + '" class="' + itemClass + '"'
+									+ (fError ? ' disabled' : '') + '>'
+									+ '<span class="fmsm-menu-item-name">' + name + ' </span>'
+									+ summary
 									+ '</button>';
 					});
 				}
@@ -260,7 +283,8 @@ script-menu.js application/javascript
 						msg = t("fmsm password is not defined");
 					}
 					else {
-						msg = t("fmsm password is defined more than once");
+						msg = t("fmsm password is defined more than once")
+								+ '<br />' + window["fmsm-data"].pw.join('<br />');
 					}
 					html = '<button class="fmsm-error">' + t('Error') + ': ' + msg + '</button>';
 				}
