@@ -5,7 +5,7 @@
 
 script-menu.js application/javascript
 (function() {
-	let appName = "fmsm", appVer = "v.0.9.a";
+	let appName = "fmsm", appVer = "v.0.9.b";
 	if (! window["fmsm-data"]){
 		window["fmsm-data"] = { nInstance:0, pw:[] };
 	}
@@ -66,6 +66,7 @@ script-menu.js application/javascript
 		if (charset){ e.charset = charset };
 		inline ?  (e.textContent = src) : (e.src = src);
 		document.body.appendChild(e);
+		e.remove();
 	}
 	let fmsm = {
 		pageSource: "",
@@ -151,7 +152,6 @@ script-menu.js application/javascript
 			}
 		}
 		else {
-			let e = document.createElement("script");
 			if (scheme === "javascript"){
 				inject(src.substring(scheme.length+1), "utf-8", true);
 			}
